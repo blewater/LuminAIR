@@ -10,6 +10,10 @@ use recip::{
     component::{RecipComponent, RecipEval},
     table::RecipColumn,
 };
+use sqrt::{
+    component::{SqrtComponent, SqrtEval},
+    table::SqrtColumn,
+};
 use serde::{Deserialize, Serialize};
 use stwo_prover::{
     constraint_framework::{preprocessed_columns::IsFirst, TraceLocationAllocator},
@@ -31,6 +35,7 @@ use crate::{LuminairClaim, LuminairInteractionClaim};
 pub mod add;
 pub mod mul;
 pub mod recip;
+pub mod sqrt;
 
 /// Errors related to trace operations.
 #[derive(Debug, Error, Eq, PartialEq)]
@@ -49,6 +54,8 @@ pub type AddClaim = Claim<AddColumn>;
 pub type MulClaim = Claim<MulColumn>;
 /// Claim for the Recip trace.
 pub type RecipClaim = Claim<RecipColumn>;
+/// Claim for the Sqrt trace.
+pub type SqrtClaim = Claim<SqrtColumn>;
 
 /// Represents columns of a trace.
 pub trait TraceColumn {
@@ -104,6 +111,7 @@ pub enum ClaimType {
     Add(Claim<AddColumn>),
     Mul(Claim<MulColumn>),
     Recip(Claim<RecipColumn>),
+    Sqrt(Claim<SqrtColumn>),
 }
 
 /// The claim of the interaction phase 2 (with the logUp protocol).
@@ -159,6 +167,7 @@ pub struct LuminairComponents {
     add: Option<AddComponent>,
     mul: Option<MulComponent>,
     recip: Option<RecipComponent>,
+    sqrt: Option<SqrtComponent>,
 }
 
 impl LuminairComponents {
@@ -215,7 +224,21 @@ impl LuminairComponents {
         } else {
             None
         };
-        Self { add, mul, recip }
+
+        let sqrt = if let Some(ref sqrt_claim) = claim.sqrt {
+            Some(SqrtComponent::new(
+                tree_span_provider,
+                SqrtEval::new(
+                    &sqrt_claim,
+                    interaction_elements.node_lookup_elements.clone(),
+                ),
+                interaction_claim.sqrt.as_ref().unwrap().claimed_sum,
+            ))
+        } else {
+            None
+        };
+        
+        Self { add, mul, recip, sqrt }
     }
 
     /// Returns the `ComponentProver` of each components, used by the prover.
@@ -230,6 +253,9 @@ impl LuminairComponents {
         }
         if let Some(ref recip_component) = self.recip {
             components.push(recip_component);
+        }
+        if let Some(ref sqrt_component) = self.sqrt {
+            components.push(sqrt_component);
         }
         components
     }

@@ -9,6 +9,7 @@ use stwo_prover::constraint_framework::PREPROCESSED_TRACE_IDX;
 use stwo_prover::core::{
     channel::Channel, pcs::TreeVec, prover::StarkProof, vcs::ops::MerkleHasher,
 };
+use crate::components::SqrtClaim;
 
 pub mod components;
 pub mod pie;
@@ -31,6 +32,7 @@ pub struct LuminairClaim {
     pub add: Option<AddClaim>,
     pub mul: Option<MulClaim>,
     pub recip: Option<RecipClaim>,
+    pub sqrt: Option<SqrtClaim>,
     pub is_first_log_sizes: Vec<u32>,
 }
 
@@ -41,6 +43,7 @@ impl LuminairClaim {
             add: None,
             mul: None,
             recip: None,
+            sqrt: None,
             is_first_log_sizes,
         }
     }
@@ -55,6 +58,9 @@ impl LuminairClaim {
         }
         if let Some(ref recip) = self.recip {
             recip.mix_into(channel);
+        }
+        if let Some(ref sqrt) = self.sqrt {
+            sqrt.mix_into(channel);
         }
     }
 
@@ -86,6 +92,7 @@ pub struct LuminairInteractionClaim {
     pub add: Option<InteractionClaim>,
     pub mul: Option<InteractionClaim>,
     pub recip: Option<InteractionClaim>,
+    pub sqrt: Option<InteractionClaim>,
 }
 
 impl LuminairInteractionClaim {

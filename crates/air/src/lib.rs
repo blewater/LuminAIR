@@ -107,5 +107,8 @@ impl LuminairInteractionClaim {
         if let Some(ref recip) = self.recip {
             recip.mix_into(channel);
         }
+        if let Some(ref sqrt) = self.sqrt {
+            sqrt.mix_into(channel);
+        }
     }
 }

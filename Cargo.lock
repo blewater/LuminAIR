@@ -1364,7 +1364,7 @@ dependencies = [
 [[package]]
 name = "numerair"
 version = "0.1.0"
-source = "git+https://github.com/blewater/NumerAir.git?rev=dc2eac0#dc2eac0475f1b8a07d459270d6fd94ab2fdcb036"
+source = "git+https://github.com/gizatechxyz/NumerAir.git?rev=4a72c177#4a72c177ad98e29393c80eecfa48e411a2ccace9"
 dependencies = [
  "bytemuck",
  "lazy_static",

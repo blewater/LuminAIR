@@ -1,6 +1,6 @@
 use crate::components::{NodeElements, SqrtClaim};
 use num_traits::One;
-use numerair::{eval::EvalFixedPoint, SCALE_FACTOR};
+use numerair::eval::EvalFixedPoint;
 use stwo_prover::constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, RelationEntry,
 };
@@ -53,7 +53,7 @@ impl FrameworkEval for SqrtEval {
         // Values for consistency constraints
         let input_val = eval.next_trace_mask(); // Value from the tensor at index.
         let out_val = eval.next_trace_mask(); // Value in output tensor at index.
-        let rem_val = eval.next_trace_mask(); // Rem value in result tensor at index.
+        let rem_val = eval.next_trace_mask(); // Remainder value from the sqrt operation.
 
         // Multiplicities for interaction constraints
         let input_mult = eval.next_trace_mask();
@@ -66,8 +66,8 @@ impl FrameworkEval for SqrtEval {
         // The is_last_idx flag is either 0 or 1.
         eval.add_constraint(is_last_idx.clone() * (is_last_idx.clone() - E::F::one()));
 
-        // Evaluates fixed point sqrt.
-        eval.eval_fixed_sqrt(input_val.clone(), out_val.clone(), rem_val.clone());
+        // Evaluates fixed point sqrt
+        eval.eval_fixed_sqrt(input_val.clone(), out_val.clone(), rem_val);
 
         // ┌────────────────────────────┐
         // │   Transition Constraints   │

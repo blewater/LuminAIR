@@ -37,6 +37,7 @@ pub struct SqrtTableRow {
     pub input: BaseField,
     pub out: BaseField,
     pub rem: BaseField,
+    pub scale: BaseField,
     pub input_mult: BaseField,
     pub out_mult: BaseField,
 }
@@ -52,7 +53,7 @@ impl SqrtTable {
         self.table.push(row);
     }
 
-    /// Transforms the [`SqrtTable`] into [`TraceEval`] to be commited
+    /// Transforms the [`SqrtTable`] into [`TraceEval`] to be committed
     /// when generating a STARK proof.
     pub fn trace_evaluation(&self) -> Result<(TraceEval, SqrtClaim), TraceError> {
         let n_rows = self.table.len();
@@ -76,6 +77,7 @@ impl SqrtTable {
         let mut input = BaseColumn::zeros(trace_size);
         let mut out = BaseColumn::zeros(trace_size);
         let mut rem = BaseColumn::zeros(trace_size);
+        let mut scale = BaseColumn::zeros(trace_size);
         let mut input_mult = BaseColumn::zeros(trace_size);
         let mut out_mult = BaseColumn::zeros(trace_size);
 
@@ -91,6 +93,7 @@ impl SqrtTable {
             input.set(vec_row, row.input);
             out.set(vec_row, row.out);
             rem.set(vec_row, row.rem);
+            scale.set(vec_row, row.scale);
             input_mult.set(vec_row, row.input_mult);
             out_mult.set(vec_row, row.out_mult);
         }
@@ -114,6 +117,7 @@ impl SqrtTable {
         trace.push(CircleEvaluation::new(domain, input));
         trace.push(CircleEvaluation::new(domain, out));
         trace.push(CircleEvaluation::new(domain, rem));
+        trace.push(CircleEvaluation::new(domain, scale));
         trace.push(CircleEvaluation::new(domain, input_mult));
         trace.push(CircleEvaluation::new(domain, out_mult));
 
@@ -136,8 +140,9 @@ pub enum SqrtColumn {
     Input,
     Out,
     Rem,
+    Scale,
     InputMult,
-    OutMult,
+    OutputMult,
 }
 
 impl SqrtColumn {
@@ -154,8 +159,9 @@ impl SqrtColumn {
             Self::Input => 7,
             Self::Out => 8,
             Self::Rem => 9,
-            Self::InputMult => 10,
-            Self::OutMult => 11,
+            Self::Scale => 10,
+            Self::InputMult => 11,
+            Self::OutputMult => 12,
         }
     }
 }
@@ -163,7 +169,7 @@ impl SqrtColumn {
 impl TraceColumn for SqrtColumn {
     /// Returns the number of columns in the main trace and interaction trace.
     fn count() -> (usize, usize) {
-        (12, 2)
+        (13, 2)
     }
 }
 
@@ -200,7 +206,7 @@ pub fn interaction_trace_evaluation(
     // Create trace for OUTPUT
     let out_main_col = &main_trace_eval[SqrtColumn::Out.index()].data;
     let node_id_col = &main_trace_eval[SqrtColumn::NodeId.index()].data;
-    let out_mult_col = &main_trace_eval[SqrtColumn::OutMult.index()].data;
+    let out_mult_col = &main_trace_eval[SqrtColumn::OutputMult.index()].data;
     let mut out_int_col = logup_gen.new_col();
     for row in 0..1 << (log_size - LOG_N_LANES) {
         let out = out_main_col[row];

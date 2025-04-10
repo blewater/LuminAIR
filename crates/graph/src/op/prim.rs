@@ -552,7 +552,7 @@ impl Compiler for PrimitiveCompiler {
             } else if is::<luminal::op::Recip>(op) {
                 *op_ref = LuminairRecip::new().into_operator()
             } else if is::<luminal::op::Sqrt>(op) {
-                *op_ref = LuminairRecip::new().into_operator()
+                *op_ref = LuminairSqrt::new().into_operator()
             } else if is::<luminal::op::Contiguous>(op) {
                 *op_ref = Box::new(Contiguous)
             }

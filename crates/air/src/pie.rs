@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    add::table::AddTable, mul::table::MulTable, recip::table::RecipTable, ClaimType, TraceError,
+    add::table::AddTable, mul::table::MulTable, recip::table::RecipTable,
+    sqrt::table::SqrtTable, ClaimType, TraceError,
     TraceEval,
 };
 
@@ -15,6 +16,8 @@ pub enum TableTrace {
     Mul { table: MulTable },
     /// Recip operator trace table.
     Recip { table: RecipTable },
+    /// Sqrt operator trace table.
+    Sqrt { table: SqrtTable },
 }
 
 impl TableTrace {
@@ -35,6 +38,10 @@ impl TableTrace {
     pub fn from_recip(table: RecipTable) -> Self {
         Self::Recip { table }
     }
+    
+    /// Creates a new [`TableTrace`] from a [`SqrtTable`]
+    /// for use in proof generation
+    pub fn from_sqrt(table: SqrtTable) -> Self { Self::Sqrt { table } }
 
     pub fn to_trace(&self) -> Result<(TraceEval, ClaimType), TraceError> {
         match self {
@@ -52,6 +59,11 @@ impl TableTrace {
                 let (trace, claim) = table.trace_evaluation()?;
                 Ok((trace, ClaimType::Recip(claim)))
             }
+            
+            TableTrace::Sqrt { table } => {
+                let (trace, claim) = table.trace_evaluation()?;
+                Ok((trace, ClaimType::Sqrt(claim)))
+            },
         }
     }
 }
@@ -88,6 +100,7 @@ pub struct OpCounter {
     pub add: Option<usize>,
     pub mul: Option<usize>,
     pub recip: Option<usize>,
+    pub sqrt: Option<usize>,
 }
 
 /// Indicates if a node input is an initializer (i.e., from initial input).

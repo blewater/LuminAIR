@@ -13,6 +13,7 @@ use luminair_air::{
             table::{MulColumn, MulTable},
         },
         recip::{self, table::{RecipColumn, RecipTable}},
+        sqrt::{self, table::{SqrtColumn, SqrtTable}},
         ClaimType, LuminairComponents, LuminairInteractionElements, TraceError,
     },
     pie::{
@@ -88,6 +89,7 @@ impl LuminairGraph for Graph {
         let mut add_table = AddTable::new();
         let mut mul_table = MulTable::new();
         let mut recip_table = RecipTable::new();
+        let mut sqrt_table = SqrtTable::new();
 
         for (node, src_ids) in self.linearized_graph.as_ref().unwrap() {
             if self.tensors.contains_key(&(*node, 0)) {
@@ -188,6 +190,19 @@ impl LuminairGraph for Graph {
                     )
                     .unwrap();
                     *op_counter.mul.get_or_insert(0) += 1;
+
+                    tensors
+                } else if <Box<dyn Operator> as HasProcessTrace<SqrtColumn, SqrtTable>>::has_process_trace(
+                    node_op,
+                ) {
+                    let tensors = <Box<dyn Operator> as HasProcessTrace<
+                        SqrtColumn,
+                        SqrtTable,
+                    >>::call_process_trace(
+                        node_op, srcs, &mut sqrt_table, &node_info
+                    )
+                        .unwrap();
+                    *op_counter.sqrt.get_or_insert(0) += 1;
 
                     tensors
                 } else if <Box<dyn Operator> as HasProcessTrace<RecipColumn, RecipTable>>::has_process_trace(

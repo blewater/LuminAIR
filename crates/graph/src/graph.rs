@@ -259,6 +259,12 @@ impl LuminairGraph for Graph {
 
             table_traces.push(TableTrace::from_recip(recip_table));
         }
+        if !sqrt_table.table.is_empty() {
+            let log_size = calculate_log_size(sqrt_table.table.len());
+            max_log_size = max_log_size.max(log_size);
+            
+            table_traces.push(TableTrace::from_sqrt(sqrt_table));
+        }
 
         Ok(LuminairPie {
             table_traces,
@@ -335,6 +341,7 @@ impl LuminairGraph for Graph {
                 ClaimType::Add(claim) => main_claim.add = Some(claim),
                 ClaimType::Mul(claim) => main_claim.mul = Some(claim),
                 ClaimType::Recip(claim) => main_claim.recip = Some(claim),
+                ClaimType::Sqrt(claim) => main_claim.sqrt = Some(claim),
             }
         }
 
@@ -374,6 +381,12 @@ impl LuminairGraph for Graph {
                         recip::table::interaction_trace_evaluation(&trace, lookup_elements).unwrap();
                     tree_builder.extend_evals(tr);
                     interaction_claim.recip = Some(cl);
+                }
+                ClaimType::Sqrt(_) => {
+                    let (tr, cl) =
+                        sqrt::table::interaction_trace_evaluation(&trace, lookup_elements).unwrap();
+                    tree_builder.extend_evals(tr);
+                    interaction_claim.sqrt = Some(cl);
                 }
             }
         }
@@ -504,9 +517,11 @@ fn test_direct_table_trace_processing() {
         .table_traces
         .iter()
         .any(|t| matches!(t, TableTrace::Mul { .. }));
+    let has_sqrt = trace.table_traces.iter().any(|t| matches!(t, TableTrace::Sqrt { .. }));
 
     assert!(has_add, "Should contain Add table traces");
     assert!(has_mul, "Should contain Mul table traces");
+    assert!(has_sqrt, "Should contain Sqrt table traces");
 
     // Verify the end-to-end proof pipeline
     let proof = cx.prove(trace).expect("Proof generation failed");

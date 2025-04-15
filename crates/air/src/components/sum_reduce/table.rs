@@ -1,5 +1,5 @@
 use crate::{
-    components::{InteractionClaim, NodeElements, RecipClaim, TraceColumn, TraceError, TraceEval},
+    components::{InteractionClaim, NodeElements, SumReduceClaim, TraceColumn, TraceError, TraceEval},
     utils::calculate_log_size,
 };
 use num_traits::One;
@@ -16,17 +16,17 @@ use stwo_prover::{
     },
 };
 
-/// Represents the trace for the Recip component, containing the required registers for its
+/// Represents the trace for the SumReduce component, containing the required registers for its
 /// constraints.
 #[derive(Debug, Default, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RecipTable {
-    /// A vector of [`RecipTableRow`] representing the table rows.
-    pub table: Vec<RecipTableRow>,
+pub struct SumReduceTable {
+    /// A vector of [`SumReduceTableRow`] representing the table rows.
+    pub table: Vec<SumReduceTableRow>,
 }
 
-/// Represents a single row of the [`RecipTable`]
+/// Represents a single row of the [`SumReduceTable`]
 #[derive(Debug, Default, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RecipTableRow {
+pub struct SumReduceTableRow {
     pub node_id: BaseField,
     pub input_id: BaseField,
     pub idx: BaseField,
@@ -36,26 +36,27 @@ pub struct RecipTableRow {
     pub next_idx: BaseField,
     pub input: BaseField,
     pub out: BaseField,
-    pub rem: BaseField,
-    pub scale: BaseField,
+    pub acc: BaseField,
+    pub next_acc: BaseField,
+    pub is_last_step: BaseField,
     pub input_mult: BaseField,
     pub out_mult: BaseField,
 }
 
-impl RecipTable {
-    /// Creates a new, empty [`RecipTable`].
+impl SumReduceTable {
+    /// Creates a new, empty [`SumReduceTable`].
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Adds a new row to the Recip Table.
-    pub fn add_row(&mut self, row: RecipTableRow) {
+    /// Adds a new row to the SumReduce Table.
+    pub fn add_row(&mut self, row: SumReduceTableRow) {
         self.table.push(row);
     }
 
-    /// Transforms the [`RecipTable`] into [`TraceEval`] to be committed
+    /// Transforms the [`SumReduceTable`] into [`TraceEval`] to be committed
     /// when generating a STARK proof.
-    pub fn trace_evaluation(&self) -> Result<(TraceEval, RecipClaim), TraceError> {
+    pub fn trace_evaluation(&self) -> Result<(TraceEval, SumReduceClaim), TraceError> {
         let n_rows = self.table.len();
         if n_rows == 0 {
             return Err(TraceError::EmptyTrace);
@@ -76,8 +77,9 @@ impl RecipTable {
         let mut next_idx = BaseColumn::zeros(trace_size);
         let mut input = BaseColumn::zeros(trace_size);
         let mut out = BaseColumn::zeros(trace_size);
-        let mut rem = BaseColumn::zeros(trace_size);
-        let mut scale = BaseColumn::zeros(trace_size);
+        let mut acc = BaseColumn::zeros(trace_size);
+        let mut next_acc = BaseColumn::zeros(trace_size);
+        let mut is_last_step = BaseColumn::zeros(trace_size);
         let mut input_mult = BaseColumn::zeros(trace_size);
         let mut out_mult = BaseColumn::zeros(trace_size);
 
@@ -92,8 +94,9 @@ impl RecipTable {
             next_idx.set(vec_row, row.next_idx);
             input.set(vec_row, row.input);
             out.set(vec_row, row.out);
-            rem.set(vec_row, row.rem);
-            scale.set(vec_row, row.scale);
+            acc.set(vec_row, row.acc);
+            next_acc.set(vec_row, row.next_acc);
+            is_last_step.set(vec_row, row.is_last_step);
             input_mult.set(vec_row, row.input_mult);
             out_mult.set(vec_row, row.out_mult);
         }
@@ -106,7 +109,7 @@ impl RecipTable {
         let domain = CanonicCoset::new(log_size).circle_domain();
 
         // Create trace
-        let mut trace = Vec::with_capacity(RecipColumn::count().0);
+        let mut trace = Vec::with_capacity(SumReduceColumn::count().0);
         trace.push(CircleEvaluation::new(domain, node_id));
         trace.push(CircleEvaluation::new(domain, input_id));
         trace.push(CircleEvaluation::new(domain, idx));
@@ -116,20 +119,21 @@ impl RecipTable {
         trace.push(CircleEvaluation::new(domain, next_idx));
         trace.push(CircleEvaluation::new(domain, input));
         trace.push(CircleEvaluation::new(domain, out));
-        trace.push(CircleEvaluation::new(domain, rem));
-        trace.push(CircleEvaluation::new(domain, scale));
+        trace.push(CircleEvaluation::new(domain, acc));
+        trace.push(CircleEvaluation::new(domain, next_acc));
+        trace.push(CircleEvaluation::new(domain, is_last_step));
         trace.push(CircleEvaluation::new(domain, input_mult));
         trace.push(CircleEvaluation::new(domain, out_mult));
 
-        assert_eq!(trace.len(), RecipColumn::count().0);
+        assert_eq!(trace.len(), SumReduceColumn::count().0);
 
-        Ok((trace, RecipClaim::new(log_size)))
+        Ok((trace, SumReduceClaim::new(log_size)))
     }
 }
 
-/// Enum representing the column indices in the Recip trace.
+/// Enum representing the column indices in the SumReduce trace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RecipColumn {
+pub enum SumReduceColumn {
     NodeId,
     InputId,
     Idx,
@@ -139,14 +143,15 @@ pub enum RecipColumn {
     NextIdx,
     Input,
     Out,
-    Rem,
-    Scale,
+    Acc,
+    NextAcc,
+    IsLastStep,
     InputMult,
     OutMult,
 }
 
-impl RecipColumn {
-    /// Returns the index of the column in the Recip trace.
+impl SumReduceColumn {
+    /// Returns the index of the column in the SumReduce trace.
     pub const fn index(self) -> usize {
         match self {
             Self::NodeId => 0,
@@ -158,21 +163,22 @@ impl RecipColumn {
             Self::NextIdx => 6,
             Self::Input => 7,
             Self::Out => 8,
-            Self::Rem => 9,
-            Self::Scale => 10,
-            Self::InputMult => 11,
-            Self::OutMult => 12,
+            Self::Acc => 9,
+            Self::NextAcc => 10,
+            Self::IsLastStep => 11,
+            Self::InputMult => 12,
+            Self::OutMult => 13,
         }
     }
 }
-impl TraceColumn for RecipColumn {
+impl TraceColumn for SumReduceColumn {
     /// Returns the number of columns in the main trace and interaction trace.
     fn count() -> (usize, usize) {
-        (13, 2)
+        (14, 2)
     }
 }
 
-/// Generates the interaction trace for the Recip component using the main trace and lookup elements.
+/// Generates the interaction trace for the SumReduce component using the main trace and lookup elements.
 pub fn interaction_trace_evaluation(
     main_trace_eval: &TraceEval,
     lookup_elements: &NodeElements,
@@ -185,9 +191,9 @@ pub fn interaction_trace_evaluation(
     let mut logup_gen = LogupTraceGenerator::new(log_size);
 
     // Create trace for Input
-    let input_main_col = &main_trace_eval[RecipColumn::Input.index()].data;
-    let input_id_col = &main_trace_eval[RecipColumn::InputId.index()].data;
-    let input_mult_col = &main_trace_eval[RecipColumn::InputMult.index()].data;
+    let input_main_col = &main_trace_eval[SumReduceColumn::Input.index()].data;
+    let input_id_col = &main_trace_eval[SumReduceColumn::InputId.index()].data;
+    let input_mult_col = &main_trace_eval[SumReduceColumn::InputMult.index()].data;
     let mut input_int_col = logup_gen.new_col();
     for row in 0..1 << (log_size - LOG_N_LANES) {
         let input = input_main_col[row];
@@ -203,9 +209,9 @@ pub fn interaction_trace_evaluation(
     input_int_col.finalize_col();
 
     // Create trace for OUTPUT
-    let out_main_col = &main_trace_eval[RecipColumn::Out.index()].data;
-    let node_id_col = &main_trace_eval[RecipColumn::NodeId.index()].data;
-    let out_mult_col = &main_trace_eval[RecipColumn::OutMult.index()].data;
+    let out_main_col = &main_trace_eval[SumReduceColumn::Out.index()].data;
+    let node_id_col = &main_trace_eval[SumReduceColumn::NodeId.index()].data;
+    let out_mult_col = &main_trace_eval[SumReduceColumn::OutMult.index()].data;
     let mut out_int_col = logup_gen.new_col();
     for row in 0..1 << (log_size - LOG_N_LANES) {
         let out = out_main_col[row];

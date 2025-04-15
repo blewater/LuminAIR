@@ -3,13 +3,14 @@
 use std::vec;
 
 use ::serde::{Deserialize, Serialize};
-use components::{AddClaim, InteractionClaim, MulClaim, RecipClaim};
+use components::{
+    AddClaim, InteractionClaim, MaxReduceClaim, MulClaim, RecipClaim, SqrtClaim, SumReduceClaim,
+};
 use pie::ExecutionResources;
 use stwo_prover::constraint_framework::PREPROCESSED_TRACE_IDX;
 use stwo_prover::core::{
     channel::Channel, pcs::TreeVec, prover::StarkProof, vcs::ops::MerkleHasher,
 };
-use crate::components::SqrtClaim;
 
 pub mod components;
 pub mod pie;
@@ -31,8 +32,10 @@ pub struct LuminairProof<H: MerkleHasher> {
 pub struct LuminairClaim {
     pub add: Option<AddClaim>,
     pub mul: Option<MulClaim>,
+    pub sum_reduce: Option<SumReduceClaim>,
     pub recip: Option<RecipClaim>,
     pub sqrt: Option<SqrtClaim>,
+    pub max_reduce: Option<MaxReduceClaim>,
     pub is_first_log_sizes: Vec<u32>,
 }
 
@@ -42,8 +45,10 @@ impl LuminairClaim {
         Self {
             add: None,
             mul: None,
+            sum_reduce: None,
             recip: None,
             sqrt: None,
+            max_reduce: None,
             is_first_log_sizes,
         }
     }
@@ -56,11 +61,17 @@ impl LuminairClaim {
         if let Some(ref mul) = self.mul {
             mul.mix_into(channel);
         }
+        if let Some(ref sum_reduce) = self.sum_reduce {
+            sum_reduce.mix_into(channel);
+        }
         if let Some(ref recip) = self.recip {
             recip.mix_into(channel);
         }
         if let Some(ref sqrt) = self.sqrt {
             sqrt.mix_into(channel);
+        }
+        if let Some(ref max_reduce) = self.max_reduce {
+            max_reduce.mix_into(channel);
         }
     }
 
@@ -74,8 +85,17 @@ impl LuminairClaim {
         if let Some(ref mul) = self.mul {
             log_sizes.push(mul.log_sizes());
         }
+        if let Some(ref sum_reduce) = self.sum_reduce {
+            log_sizes.push(sum_reduce.log_sizes());
+        }
         if let Some(ref recip) = self.recip {
             log_sizes.push(recip.log_sizes());
+        }
+        if let Some(ref sqrt) = self.sqrt {
+            log_sizes.push(sqrt.log_sizes());
+        }
+        if let Some(ref max_reduce) = self.max_reduce {
+            log_sizes.push(max_reduce.log_sizes());
         }
 
         let mut log_sizes = TreeVec::concat_cols(log_sizes.into_iter());
@@ -91,24 +111,32 @@ impl LuminairClaim {
 pub struct LuminairInteractionClaim {
     pub add: Option<InteractionClaim>,
     pub mul: Option<InteractionClaim>,
+    pub sum_reduce: Option<InteractionClaim>,
     pub recip: Option<InteractionClaim>,
     pub sqrt: Option<InteractionClaim>,
+    pub max_reduce: Option<InteractionClaim>,
 }
 
 impl LuminairInteractionClaim {
     /// Mixes interaction claim data into a Fiat-Shamir channel.
     pub fn mix_into(&self, channel: &mut impl Channel) {
-        if let Some(ref recip) = self.recip {
-            recip.mix_into(channel);
+        if let Some(ref add) = self.add {
+            add.mix_into(channel);
         }
         if let Some(ref mul) = self.mul {
             mul.mix_into(channel);
+        }
+        if let Some(ref sum_reduce) = self.sum_reduce {
+            sum_reduce.mix_into(channel);
         }
         if let Some(ref recip) = self.recip {
             recip.mix_into(channel);
         }
         if let Some(ref sqrt) = self.sqrt {
             sqrt.mix_into(channel);
+        }
+        if let Some(ref max_reduce) = self.max_reduce {
+            max_reduce.mix_into(channel);
         }
     }
 }
